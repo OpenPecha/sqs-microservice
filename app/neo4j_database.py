@@ -1,5 +1,8 @@
 import queue as queue_module
 import logging
+from typing import override
+from dotenv import load_dotenv
+
 
 from neo4j import GraphDatabase
 from app.neo4j_database_validator import Neo4JDatabaseValidator
@@ -7,6 +10,8 @@ import os
 from app.neo4j_quries import Queries
 
 logger = logging.getLogger(__name__)
+
+load_dotenv(override=True)
 
 # Singleton driver instance - thread-safe and reusable
 _neo4j_driver = None
