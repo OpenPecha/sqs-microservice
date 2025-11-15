@@ -1,12 +1,18 @@
 from fastapi import APIRouter, HTTPException
 
-from app.models import SegmentsRelationRequest
+from app.models import (
+    SegmentsRelationRequest, 
+    AllTextSegmentRelationMapping,
+    SegmentsRelation,
+    Mapping
+)
 from app.db.postgres import SessionLocal
 from app.db.models import RootJob, SegmentTask
 from datetime import datetime, timezone
 from uuid import uuid4
 from app.config import get
 import json
+import logging
 
 import boto3
 
@@ -14,6 +20,8 @@ relation = APIRouter(
     prefix="/relation",
     tags=["Segments Relation"]
 )
+
+logger = logging.getLogger(__name__)
 
 # Initialize SQS client with proper configuration
 sqs_client = boto3.client(
@@ -34,6 +42,57 @@ def get_job_status(job_id: str):
             return job
     except:
         raise HTTPException(status_code=500, detail="Failed to get job status, Database read error")
+
+@relation.get("/{manifestation_id}/all-relations")
+def get_all_segments_relation_by_manifestation(manifestation_id: str):
+    try:
+        with SessionLocal() as session:
+            root_job = session.query(RootJob).filter(RootJob.manifestation_id == manifestation_id).first()
+            if root_job.completed_segments < root_job.total_segments:
+                raise HTTPException(status_code=400, detail="Job not completed")
+            
+            all_text_segment_relations = session.query(SegmentTask).filter(SegmentTask.job_id == root_job.job_id).all()
+
+            response = _format_all_text_segment_relation_mapping(
+                manifestation_id = manifestation_id,
+                all_text_segment_relations = all_text_segment_relations
+            )
+            return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to get all segments relation by manifestation, Database read error, Error: " + str(e))
+
+def _format_all_text_segment_relation_mapping(manifestation_id: str, all_text_segment_relations):
+    response = AllTextSegmentRelationMapping(
+        manifestation_id = manifestation_id,
+        segments = []
+    )
+    for task in all_text_segment_relations:
+        task_dict = {
+            "task_id": str(task.task_id),
+            "job_id": str(task.job_id),
+            "segment_id": task.segment_id,
+            "status": task.status,
+            "result_json": task.result_json,
+            "result_location": task.result_location,
+            "error_message": task.error_message,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "updated_at": task.updated_at.isoformat() if task.updated_at else None
+        }
+        logger.info("Starting with formatting task: ", task_dict)
+        segment = SegmentsRelation(
+            segment_id = task.segment_id,
+            mappings = []
+        )
+        for mapping in task_dict["result_json"]:
+            mapping_dict = Mapping(
+                manifestation_id = mapping["manifestation_id"],
+                segments = mapping["segments"]
+            )
+            segment.mappings.append(mapping_dict)
+        logger.info("Segment: ", segment)
+        response.segments.append(segment)
+    logger.info("Response: ", response)
+    return response
 
 @relation.post("/segments")
 def get_segments_relation(request: SegmentsRelationRequest):
@@ -74,6 +133,7 @@ def get_segments_relation(request: SegmentsRelationRequest):
         "status": "QUEUED",
         "message": f"Segments relation job created successfully. Dispatched {dispatched_count} tasks."
     }
+
 
 def _create_root_job(job_id: uuid4, total_segments: int, manifestation_id: str):
     try:
