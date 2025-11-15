@@ -5,12 +5,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 Config = {
-    "CELERY_BROKER_URL": os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379'),
-    "CELERY_RESULT_BACKEND": os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379'),
     "NEO4J_URI": os.getenv('NEO4J_URI', None),
     "NEO4J_USER": os.getenv('NEO4J_USER', None),
     "NEO4J_PASSWORD": os.getenv('NEO4J_PASSWORD', None),
     "POSTGRES_URL": os.getenv('POSTGRES_URL', 'postgresql://admin:pechaAdmin@localhost:5435/pecha'),
+    
+    # AWS SQS Configuration
+    "AWS_REGION": os.getenv('AWS_REGION', 'us-east-1'),
+    "AWS_ACCESS_KEY_ID": os.getenv('AWS_ACCESS_KEY_ID', None),
+    "AWS_SECRET_ACCESS_KEY": os.getenv('AWS_SECRET_ACCESS_KEY', None),
+    "SQS_QUEUE_URL": os.getenv('SQS_QUEUE_URL', None),
 }
 
 

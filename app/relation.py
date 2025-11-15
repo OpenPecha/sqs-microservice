@@ -1,15 +1,26 @@
 from fastapi import APIRouter, HTTPException
 
 from app.models import SegmentsRelationRequest
-from app.tasks import process_segment_task
 from app.db.postgres import SessionLocal
 from app.db.models import RootJob, SegmentTask
 from datetime import datetime, timezone
 from uuid import uuid4
+from app.config import get
+import json
+
+import boto3
 
 relation = APIRouter(
     prefix="/relation",
     tags=["Segments Relation"]
+)
+
+# Initialize SQS client with proper configuration
+sqs_client = boto3.client(
+    'sqs',
+    region_name=get('AWS_REGION'),
+    aws_access_key_id=get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=get('AWS_SECRET_ACCESS_KEY')
 )
 
 @relation.get("/{job_id}/status")
@@ -43,15 +54,20 @@ def get_segments_relation(request: SegmentsRelationRequest):
 
     dispatched_count = 0
     for segment in request.segments:
-        task = process_segment_task.delay(
-            job_id = job_id,
-            manifestation_id = request.manifestation_id,
-            segment_id = segment.segment_id,
-            start = segment.span.start,
-            end = segment.span.end
+        message_body = {
+            "job_id": job_id,
+            "manifestation_id": request.manifestation_id,
+            "segment_id": segment.segment_id,
+            "start": segment.span.start,
+            "end": segment.span.end
+        }
+        
+        response = sqs_client.send_message(
+            QueueUrl=get("SQS_QUEUE_URL"),
+            MessageBody=json.dumps(message_body),
         )
         dispatched_count += 1
-        print(f"Dispatched task {dispatched_count} for segment {segment.segment_id}, task_id: {task.id}")
+        print(f"Dispatched task {dispatched_count} to SQS for segment {segment.segment_id}, MessageId: {response['MessageId']}")
 
     return {
         "job_id": job_id,
