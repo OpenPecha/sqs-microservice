@@ -1,25 +1,61 @@
-__pycache__
-*.pyc
+# Python
+__pycache__/
+*.py[cod]
 *.pyo
 *.pyd
 .Python
 *.so
 *.egg
-*.egg-info
-dist
-build
-.git
-.gitignore
-.env
-.venv
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
 venv/
-*.md
-.vscode
-.idea
+.venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Environment and secrets
+.env
+.env.*
+
+# Logs and databases
 *.log
 *.csv
-*.json
-db/
-alembic/versions/*.py
-!alembic/versions/__init__.py
+*.sqlite
+*.db
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Documentation (reduce image size, not needed at runtime)
+*.md
+docs/
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Render configs (not needed in container)
+render*.yaml
+*.plan.md
 

@@ -21,14 +21,12 @@ COPY app/ ./app/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    C_FORCE_ROOT=1
 
-# Expose port for FastAPI
+# Expose port for FastAPI (only used by web service)
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
-
-# Run FastAPI with Uvicorn
+# Default command runs FastAPI web service
+# Override this in Render or docker-compose for worker
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

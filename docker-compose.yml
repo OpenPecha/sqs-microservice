@@ -1,46 +1,39 @@
 version: '3.8'
 
 services:
-  db-local:
-    image: postgres:16-alpine
-    container_name: pecha-database
-    restart: always
+  # FastAPI Web Service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=pechaAdmin
-      - POSTGRES_DB=pecha
-      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
-    logging:
-      options:
-        max-size: 10m
-        max-file: "3"
-    ports:
-      - "5435:5432"
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://localhost:6379}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://localhost:6379}
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - POSTGRES_URL=${POSTGRES_URL}
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
     volumes:
-      - ./data/database-local:/var/lib/postgresql/data
-    networks:
-      - pecha-network
+      - ./app:/app/app  # Mount for hot reload during development
+    depends_on:
+      - worker
 
-  redis:
-    image: redis:7-alpine
-    container_name: pecha-redis
-    restart: always
-    command: redis-server --requirepass pechaAdmin
-    logging:
-      options:
-        max-size: 10m
-        max-file: "3"
-    ports:
-      - "6379:6379"
+  # Celery Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://localhost:6379}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://localhost:6379}
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - C_FORCE_ROOT=1
+    command: ["celery", "-A", "app.tasks", "worker", "--loglevel=info", "--pool=solo", "--concurrency=1"]
     volumes:
-      - ./data/redis-local:/data
-    networks:
-      - pecha-network
-
-volumes:
-  dbdata6:
-
-networks:
-  pecha-network:
-    driver: bridge
-
+      - ./app:/app/app  # Mount for hot reload during development
