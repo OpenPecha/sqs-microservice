@@ -135,7 +135,7 @@ def _update_root_job_count(job_id):
             root.status = "COMPLETED"
             root.updated_at = datetime.now(timezone.utc)
             sqs_client.send_message(
-                QueueUrl=get('SQS_QUEUE_URL'),
+                QueueUrl=get('SQS_COMPLETED_QUEUE_URL'),
                 MessageBody=json.dumps({
                     "job_id": job_id,
                     "manifestation_id": root.manifestation_id

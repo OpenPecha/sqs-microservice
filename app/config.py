@@ -15,6 +15,8 @@ Config = {
     "AWS_ACCESS_KEY_ID": os.getenv('AWS_ACCESS_KEY_ID', None),
     "AWS_SECRET_ACCESS_KEY": os.getenv('AWS_SECRET_ACCESS_KEY', None),
     "SQS_QUEUE_URL": os.getenv('SQS_QUEUE_URL', None),
+
+    "SQS_COMPLETED_QUEUE_URL": os.getenv('SQS_COMPLETED_QUEUE_URL', None),
 }
 
 
