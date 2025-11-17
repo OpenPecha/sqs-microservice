@@ -7,6 +7,15 @@ from sqlalchemy import update
 from app.neo4j_database import Neo4JDatabase
 logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
+import boto3
+from app.config import get
+
+sqs_client = boto3.client(
+    'sqs',
+    region_name=get('AWS_REGION'),
+    aws_access_key_id=get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=get('AWS_SECRET_ACCESS_KEY')
+)
 
 load_dotenv(override=True)
     
@@ -125,5 +134,12 @@ def _update_root_job_count(job_id):
         if root.completed_segments >= root.total_segments:
             root.status = "COMPLETED"
             root.updated_at = datetime.now(timezone.utc)
+            sqs_client.send_message(
+                QueueUrl=get('SQS_QUEUE_URL'),
+                MessageBody=json.dumps({
+                    "job_id": job_id,
+                    "manifestation_id": root.manifestation_id
+                })
+            )
         
         session.commit()
