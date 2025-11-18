@@ -26,8 +26,6 @@ relation = APIRouter(
     tags=["Segments Relation"]
 )
 
-logger = logging.getLogger(__name__)
-
 # Initialize SQS client with proper configuration
 sqs_client = boto3.client(
     'sqs',
@@ -83,7 +81,7 @@ def _format_all_text_segment_relation_mapping(manifestation_id: str, all_text_se
             "created_at": task.created_at.isoformat() if task.created_at else None,
             "updated_at": task.updated_at.isoformat() if task.updated_at else None
         }
-        logger.info("Starting with formatting task: ", task_dict)
+        print("Starting with formatting task: ", task_dict)
         segment = SegmentsRelation(
             segment_id = task.segment_id,
             mappings = []
@@ -94,9 +92,9 @@ def _format_all_text_segment_relation_mapping(manifestation_id: str, all_text_se
                 segments = mapping["segments"]
             )
             segment.mappings.append(mapping_dict)
-        logger.info("Segment: ", segment)
+        print("Segment: ", segment)
         response.segments.append(segment)
-    logger.info("Response: ", response)
+    print("Response: ", response)
     return response
 
 def get_all_segmentation(manifestation_id: str) -> SegmentationResponse:
@@ -207,7 +205,7 @@ def get_segments_relation(request: SegmentsRelationRequest):
         failed = len(response.get('Failed', []))
         total_dispatched += successful
         
-        logger.info(f"Batch sent: {successful} successful, {failed} failed")
+        print(f"Batch sent: {successful} successful, {failed} failed")
         
         if failed > 0:
             logger.error(f"Failed messages: {response.get('Failed', [])}")

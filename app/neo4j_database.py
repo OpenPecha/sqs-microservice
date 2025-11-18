@@ -9,8 +9,6 @@ from app.neo4j_database_validator import Neo4JDatabaseValidator
 import os
 from app.neo4j_quries import Queries
 
-logger = logging.getLogger(__name__)
-
 load_dotenv(override=True)
 
 # Singleton driver instance - thread-safe and reusable
@@ -23,10 +21,10 @@ def get_neo4j_driver():
         uri = os.environ.get("NEO4J_URI")
         user = os.environ.get("NEO4J_USER", "neo4j")  # Default to "neo4j" if not set
         password = os.environ.get("NEO4J_PASSWORD")
-        logger.info(f"Creating Neo4j driver connection to {uri} with user {user}")
+        print(f"Creating Neo4j driver connection to {uri} with user {user}")
         _neo4j_driver = GraphDatabase.driver(uri, auth=(user, password))
         _neo4j_driver.verify_connectivity()
-        logger.info("Neo4j driver connection established")
+        print("Neo4j driver connection established")
     return _neo4j_driver
 
 class Neo4JDatabase:
@@ -39,7 +37,7 @@ class Neo4JDatabase:
             self.__driver = get_neo4j_driver()
         
         self.__validator = Neo4JDatabaseValidator()
-        logger.info("Neo4JDatabase instance initialized with shared driver")
+        print("Neo4JDatabase instance initialized with shared driver")
     
     def get_session(self):
         """Return a new database session."""
@@ -135,7 +133,7 @@ class Neo4JDatabase:
         queue.put({"manifestation_id": manifestation_id, "span_start": start, "span_end": end})
         visited_manifestations.add(manifestation_id)  # Mark initial manifestation as visited
         
-        logger.info(f"Starting BFS traversal from manifestation {manifestation_id}")
+        print(f"Starting BFS traversal from manifestation {manifestation_id}")
         
         while not queue.empty():
             item = queue.get()  # get() removes and returns the item (like pop())
@@ -144,7 +142,7 @@ class Neo4JDatabase:
             span_end = item["span_end"]
             
             alignment_list = self._get_alignment_pairs_by_manifestation(manifestation_1_id)
-            logger.info(f"Found {len(alignment_list)} alignment pair(s) for manifestation {manifestation_1_id}")
+            print(f"Found {len(alignment_list)} alignment pair(s) for manifestation {manifestation_1_id}")
             
             for alignment in alignment_list:
                 if (alignment["alignment_1_id"], alignment["alignment_2_id"]) not in traversed_alignment_pairs:
@@ -152,27 +150,27 @@ class Neo4JDatabase:
                     
                     # Skip if no segments found
                     if not segments_list:
-                        logger.info("No aligned segments found, skipping")
+                        print("No aligned segments found, skipping")
                         continue
                     
                     overall_start = min(segments_list, key=lambda x: x["span"]["start"])["span"]["start"]
                     overall_end = max(segments_list, key=lambda x: x["span"]["end"])["span"]["end"]
                     manifestation_2_id = self.get_manifestation_id_by_annotation_id(alignment["alignment_2_id"])
-                    logger.info(f"Target manifestation: {manifestation_2_id}, overall span=[{overall_start}, {overall_end})")
+                    print(f"Target manifestation: {manifestation_2_id}, overall span=[{overall_start}, {overall_end})")
                     
                     # Skip if manifestation already visited (prevents infinite loops)
                     if manifestation_2_id in visited_manifestations:
-                        logger.info(f"Manifestation {manifestation_2_id} already visited, skipping")
+                        print(f"Manifestation {manifestation_2_id} already visited, skipping")
                         continue
                     
                     visited_manifestations.add(manifestation_2_id)
                     
                     if transform:
                         transformed_segments = self._get_overlapping_segments(manifestation_2_id, overall_start, overall_end)
-                        logger.info(f"Found {len(transformed_segments)} transformed segment(s) for manifestation {manifestation_2_id}")
+                        print(f"Found {len(transformed_segments)} transformed segment(s) for manifestation {manifestation_2_id}")
                         transformed_related_segments.append({"manifestation_id": manifestation_2_id, "segments": transformed_segments})
                     else:
-                        logger.info(f"Using untransformed segments for manifestation {manifestation_2_id}")
+                        print(f"Using untransformed segments for manifestation {manifestation_2_id}")
                         untransformed_related_segments.append({"manifestation_id": manifestation_2_id, "segments": segments_list})
                     traversed_alignment_pairs.append((alignment["alignment_1_id"], alignment["alignment_2_id"]))
                     traversed_alignment_pairs.append((alignment["alignment_2_id"], alignment["alignment_1_id"]))

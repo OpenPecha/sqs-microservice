@@ -2,9 +2,6 @@ from aws_sqs_consumer import Consumer, Message
 from app.tasks import process_segment_task
 from app.config import get
 import json
-import logging
-
-logger = logging.getLogger(__name__)
 
 queue_url = get("SQS_QUEUE_URL")
 
@@ -34,5 +31,5 @@ consumer = SimpleConsumer(
 )
 
 if __name__ == "__main__":
-    logger.info("Starting SQS consumer...")
+    print("Starting SQS consumer...")
     consumer.start()

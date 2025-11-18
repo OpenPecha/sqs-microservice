@@ -12,8 +12,6 @@ from app.config import get
 # Load environment variables FIRST
 load_dotenv(override=True)
 
-logger = logging.getLogger(__name__)
-
 # Initialize SQS client AFTER loading env vars
 sqs_client = boto3.client(
     'sqs',
@@ -26,22 +24,22 @@ sqs_client = boto3.client(
 def process_segment_task(job_id, manifestation_id: str, segment_id: str, start: int, end: int):
 
     try:
-        logger.info(f"Processing segment {segment_id} for job {job_id}")
+        print(f"Processing segment {segment_id} for job {job_id}")
 
-        logger.info(f"Updating root job status to IN_PROGRESS")
+        print(f"Updating root job status to IN_PROGRESS")
         _update_root_job_status(job_id=job_id)
 
-        logger.info(f"Updating segment task record in database to IN_PROGRESS")
+        print(f"Updating segment task record in database to IN_PROGRESS")
         _update_segment_task_record(
             job_id = job_id,
             segment_id = segment_id,
             status = "IN_PROGRESS"
         )
-        logger.info(f"Connecting to Neo4J database")
+        print(f"Connecting to Neo4J database")
         db = Neo4JDatabase()
 
-        logger.info(f"Getting related segments from Neo4J database")
-        logger.info(f"""
+        print(f"Getting related segments from Neo4J database")
+        print(f"""
         Parameters for getting related segments are
         manifestation_id: {manifestation_id}
         start: {start}
@@ -53,22 +51,22 @@ def process_segment_task(job_id, manifestation_id: str, segment_id: str, start: 
             end = end,
             transform = True
         )
-        logger.info(f"Related segments: {related_segments}")
-        logger.info(f"Fetched related segments from Neo4J database")
+        print(f"Related segments: {related_segments}")
+        print(f"Fetched related segments from Neo4J database")
 
-        logger.info(f"Storing related segments in database")
+        print(f"Storing related segments in database")
         
         db_response = _store_related_segments_in_db(
             job_id = job_id,
             segment_id = segment_id,
             result_json = related_segments
         )
-        logger.info(f"Database response: {db_response}")
-        logger.info(f"Stored related segments in database")
+        print(f"Database response: {db_response}")
+        print(f"Stored related segments in database")
 
-        logger.info(f"Updating root job count")
+        print(f"Updating root job count")
         _update_root_job_count(job_id=job_id)
-        logger.info(f"Updated root job count")
+        print(f"Updated root job count")
     
         return {
             "job_id": job_id,
@@ -108,7 +106,7 @@ def _store_related_segments_in_db(job_id, segment_id, result_json):
         segment_task.result_json = result_json
         segment_task.status = "COMPLETED"
         segment_task.updated_at = datetime.now(timezone.utc)
-        logger.info(f"Updated segment task record in SegmentTask table with segment id = {segment_id}")
+        print(f"Updated segment task record in SegmentTask table with segment id = {segment_id}")
         session.commit()
 
 def _update_root_job_status(job_id):
@@ -148,14 +146,14 @@ def _update_root_job_count(job_id):
                         "job_id": job_id,
                         "manifestation_id": root.manifestation_id
                     }
-                    logger.info(f"Sending completion message to SQS for job {job_id}: {message_body}")
+                    print(f"Sending completion message to SQS for job {job_id}: {message_body}")
                     
                     response = sqs_client.send_message(
                         QueueUrl=queue_url,
                         MessageBody=json.dumps(message_body)
                     )
                     
-                    logger.info(f"✅ Successfully sent message to completed queue. MessageId: {response.get('MessageId')}")
+                    print(f"✅ Successfully sent message to completed queue. MessageId: {response.get('MessageId')}")
             except Exception as sqs_error:
                 logger.error(f"❌ Failed to send completion message to SQS for job {job_id}: {str(sqs_error)}")
                 # Don't raise - we don't want SQS errors to rollback the database transaction
