@@ -5,19 +5,22 @@ from app.db.models import SegmentTask, RootJob
 from datetime import datetime, timezone
 from sqlalchemy import update
 from app.neo4j_database import Neo4JDatabase
-logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 import boto3
 from app.config import get
 
+# Load environment variables FIRST
+load_dotenv(override=True)
+
+logger = logging.getLogger(__name__)
+
+# Initialize SQS client AFTER loading env vars
 sqs_client = boto3.client(
     'sqs',
     region_name=get('AWS_REGION'),
     aws_access_key_id=get('AWS_ACCESS_KEY_ID'),
     aws_secret_access_key=get('AWS_SECRET_ACCESS_KEY')
 )
-
-load_dotenv(override=True)
     
 
 def process_segment_task(job_id, manifestation_id: str, segment_id: str, start: int, end: int):
@@ -134,12 +137,27 @@ def _update_root_job_count(job_id):
         if root.completed_segments >= root.total_segments:
             root.status = "COMPLETED"
             root.updated_at = datetime.now(timezone.utc)
-            sqs_client.send_message(
-                QueueUrl=get('SQS_COMPLETED_QUEUE_URL'),
-                MessageBody=json.dumps({
-                    "job_id": job_id,
-                    "manifestation_id": root.manifestation_id
-                })
-            )
+            
+            # Send completion message to SQS
+            try:
+                queue_url = get('SQS_COMPLETED_QUEUE_URL')
+                if not queue_url:
+                    logger.error(f"SQS_COMPLETED_QUEUE_URL not configured! Cannot send completion message for job {job_id}")
+                else:
+                    message_body = {
+                        "job_id": job_id,
+                        "manifestation_id": root.manifestation_id
+                    }
+                    logger.info(f"Sending completion message to SQS for job {job_id}: {message_body}")
+                    
+                    response = sqs_client.send_message(
+                        QueueUrl=queue_url,
+                        MessageBody=json.dumps(message_body)
+                    )
+                    
+                    logger.info(f"✅ Successfully sent message to completed queue. MessageId: {response.get('MessageId')}")
+            except Exception as sqs_error:
+                logger.error(f"❌ Failed to send completion message to SQS for job {job_id}: {str(sqs_error)}")
+                # Don't raise - we don't want SQS errors to rollback the database transaction
         
         session.commit()

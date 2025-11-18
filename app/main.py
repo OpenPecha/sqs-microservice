@@ -1,74 +1,38 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import logging
-import threading
-from app.relation import relation
+from aws_sqs_consumer import Consumer, Message
+from app.tasks import process_segment_task
 from app.config import get
+import json
+import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from app.sqs_service import consumer
+queue_url = get("SQS_QUEUE_URL")
 
-consumer_thread = None
+class SimpleConsumer(Consumer):
+    def handle_message(self, message: Message):
+        json_content = json.loads(message.Body)
+        
+        manifestation_id = json_content['manifestation_id']
+        job_id = json_content['job_id']
+        segment_id = json_content['segment_id']
+        start = int(json_content['start'])
+        end = int(json_content['end'])
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    Lifespan event handler for FastAPI.
-    Runs startup and shutdown logic.
-    """
-    # Startup: Start SQS consumer in background thread
-    logger.info("🚀 Starting SQS consumer in background thread...")
-    global consumer_thread
-    consumer_thread = threading.Thread(
-        target=consumer.start,
-        daemon=True,  # Thread will exit when main program exits
-        name="SQSConsumerThread"
-    )
-    consumer_thread.start()
-    logger.info("✅ SQS consumer thread started")
-    
-    yield  # Application runs here
-    
-    # Shutdown: Clean up (optional)
-    logger.info("🛑 Shutting down SQS consumer...")
-    # Note: daemon threads are automatically terminated on shutdown
+        segment_relations = process_segment_task(
+            job_id = job_id,
+            manifestation_id = manifestation_id,
+            segment_id = segment_id,
+            start = start,
+            end = end
+        )
+        print("Segment relations:", segment_relations)
 
-app = FastAPI(
-    title="async_worker",
-    description="SQS worker service for OpenPecha segment processing",
-    version="1.0.0",
-    lifespan=lifespan  # Register the lifespan handler
+consumer = SimpleConsumer(
+    queue_url=queue_url,
+    region=get("AWS_REGION"),
+    polling_wait_time_ms=50
 )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def root():
-    return {
-        "service": "async_worker",
-        "version": "1.0.0",
-        "status": "running",
-        "sqs_consumer": "active" if consumer_thread and consumer_thread.is_alive() else "inactive"
-    }
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "sqs_consumer_running": consumer_thread.is_alive() if consumer_thread else False
-    }
-
-app.include_router(relation)
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="localhost", port=8080, reload=True)
+    logger.info("Starting SQS consumer...")
+    consumer.start()
