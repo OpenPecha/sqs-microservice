@@ -179,7 +179,7 @@ class Neo4JDatabase:
                     queue.put({"manifestation_id": manifestation_2_id, "span_start": overall_start, "span_end": overall_end})
 
         if transform:
-            logger.info("Transformed related segments: \n", transformed_related_segments)
+            logger.info(f"Transformed related segments: \n{transformed_related_segments}")
             return transformed_related_segments
         else:
             return untransformed_related_segments

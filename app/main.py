@@ -4,7 +4,13 @@ from app.config import get
 import json
 import logging
 
-# Configure logger
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 logger = logging.getLogger(__name__)
 
 queue_url = get("SQS_QUEUE_URL")
@@ -26,7 +32,7 @@ class SimpleConsumer(Consumer):
             start = start,
             end = end
         )
-        logger.info("Segment relations:", segment_relations)
+        logger.info(f"Segment relations: {segment_relations}")
 
 consumer = SimpleConsumer(
     queue_url=queue_url,
