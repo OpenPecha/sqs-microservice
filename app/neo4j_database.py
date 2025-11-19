@@ -9,7 +9,6 @@ from neo4j import GraphDatabase
 from app.neo4j_database_validator import Neo4JDatabaseValidator
 import os
 from app.neo4j_quries import Queries
-from app.cache_service import DragonflyCache
 
 load_dotenv(override=True)
 
@@ -37,8 +36,7 @@ class Neo4JDatabase:
             self.__driver = GraphDatabase.driver(neo4j_uri, auth=neo4j_auth)
         else:
             self.__driver = get_neo4j_driver()
-        
-        self.__cache = DragonflyCache(default_ttl=86400)
+
         self.__validator = Neo4JDatabaseValidator()
         logger.info("Neo4JDatabase instance initialized with shared driver")
     
@@ -47,13 +45,6 @@ class Neo4JDatabase:
         return self.__driver.session()
 
     def _get_alignment_pairs_by_manifestation(self, manifestation_id: str) -> list[dict]:
-        logger.info(f"Checking cache for alignment pairs by manifestation {manifestation_id}")
-        cache_key = f"alignment_pairs_by_manifestation_{manifestation_id}"
-        cache_result = self.__cache.get(key=cache_key)
-        if cache_result:
-            logger.info(f"Cache hit for alignment pairs by manifestation {manifestation_id}")
-            return cache_result
-        logger.info(f"Cache miss for alignment pairs by manifestation {manifestation_id}")
         with self.get_session() as session:
             result = session.execute_read(
                 lambda tx: tx.run(
@@ -61,12 +52,6 @@ class Neo4JDatabase:
                     manifestation_id=manifestation_id
                 ).data()
             )
-            logger.info(f"Setting cache for alignment pairs by manifestation {manifestation_id}")
-            self.__cache.set(
-                key = cache_key,
-                value = result
-            )
-            logger.info(f"Cache set for alignment pairs by manifestation {manifestation_id}")
             return result
 
     def get_expression_ids_by_manifestation_ids(self, manifestation_ids: list[str]) -> dict[str, str]:
@@ -110,13 +95,6 @@ class Neo4JDatabase:
             ]
 
     def get_manifestation_id_by_annotation_id(self, annotation_id: str) -> str:
-        logger.info(f"Checking cache for manifestation id by annotation id {annotation_id}")
-        cache_key = f"manifestation_id_by_annotation_id_{annotation_id}"
-        cache_result = self.__cache.get(key=cache_key)
-        if cache_result:
-            logger.info(f"Cache hit for manifestation id by annotation id {annotation_id}")
-            return cache_result
-        logger.info(f"Cache miss for manifestation id by annotation id {annotation_id}")
         with self.__driver.session() as session:
             record = session.execute_read(
                 lambda tx: tx.run(Queries.manifestations["fetch_by_annotation_id"], annotation_id=annotation_id).single()
@@ -124,12 +102,6 @@ class Neo4JDatabase:
             if record is None:
                 return None
             d = record.data()
-            logger.info(f"Setting cache for manifestation id by annotation id {annotation_id}")
-            self.__cache.set(
-                key = cache_key,
-                value = d["manifestation_id"]
-            )
-            logger.info(f"Cache set for manifestation id by annotation id {annotation_id}")
             return d["manifestation_id"]
 
     def _get_overlapping_segments(self, manifestation_id: str, start:int, end:int) -> list[dict]:
