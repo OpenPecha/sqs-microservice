@@ -21,7 +21,7 @@ def get_dragonfly_client():
                 dragonfly_url,
                 decode_responses=True,
                 socket_connect_timeout=5,
-                socket_timeout=60
+                socket_timeout=5
             )
             _dragonfly_client.ping()
             logger.info("Dragonfly connection established")

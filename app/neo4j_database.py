@@ -1,6 +1,5 @@
 import queue as queue_module
 import logging
-from typing import override
 from dotenv import load_dotenv
 
 # Configure logger
@@ -10,7 +9,7 @@ from neo4j import GraphDatabase
 from app.neo4j_database_validator import Neo4JDatabaseValidator
 import os
 from app.neo4j_quries import Queries
-from app.redis_cache import DragonflyCache
+from app.cache_service import DragonflyCache
 
 load_dotenv(override=True)
 
@@ -39,6 +38,7 @@ class Neo4JDatabase:
         else:
             self.__driver = get_neo4j_driver()
         
+        self.__cache = DragonflyCache(default_ttl=86400)
         self.__validator = Neo4JDatabaseValidator()
         logger.info("Neo4JDatabase instance initialized with shared driver")
     
@@ -48,9 +48,8 @@ class Neo4JDatabase:
 
     def _get_alignment_pairs_by_manifestation(self, manifestation_id: str) -> list[dict]:
         logger.info(f"Checking cache for alignment pairs by manifestation {manifestation_id}")
-        cache = DragonflyCache()
         cache_key = f"alignment_pairs_by_manifestation_{manifestation_id}"
-        cache_result = cache.get(key=cache_key)
+        cache_result = self.__cache.get(key=cache_key)
         if cache_result:
             logger.info(f"Cache hit for alignment pairs by manifestation {manifestation_id}")
             return cache_result
@@ -63,7 +62,7 @@ class Neo4JDatabase:
                 ).data()
             )
             logger.info(f"Setting cache for alignment pairs by manifestation {manifestation_id}")
-            cache.set(
+            self.__cache.set(
                 key = cache_key,
                 value = result
             )
@@ -112,9 +111,8 @@ class Neo4JDatabase:
 
     def get_manifestation_id_by_annotation_id(self, annotation_id: str) -> str:
         logger.info(f"Checking cache for manifestation id by annotation id {annotation_id}")
-        cache = DragonflyCache()
         cache_key = f"manifestation_id_by_annotation_id_{annotation_id}"
-        cache_result = cache.get(key=cache_key)
+        cache_result = self.__cache.get(key=cache_key)
         if cache_result:
             logger.info(f"Cache hit for manifestation id by annotation id {annotation_id}")
             return cache_result
@@ -127,7 +125,7 @@ class Neo4JDatabase:
                 return None
             d = record.data()
             logger.info(f"Setting cache for manifestation id by annotation id {annotation_id}")
-            cache.set(
+            self.__cache.set(
                 key = cache_key,
                 value = d["manifestation_id"]
             )
