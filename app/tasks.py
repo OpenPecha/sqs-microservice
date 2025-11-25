@@ -96,7 +96,8 @@ def process_segment_task(
         _update_segment_task_record(
             job_id=job_id,
             segment_id=segment_id,
-            status="RETRYING",
+            status="QUEUED",
+            result_json=None,
             error_message=str(exc)
         )
         raise exc
