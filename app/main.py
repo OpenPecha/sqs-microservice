@@ -1,8 +1,9 @@
+import json
+import logging
 from aws_sqs_consumer import Consumer, Message
 from app.tasks import process_segment_task
 from app.config import get
-import json
-import logging
+
 
 # Configure logging
 logging.basicConfig(
@@ -15,24 +16,29 @@ logger = logging.getLogger(__name__)
 
 queue_url = get("SQS_QUEUE_URL")
 
+
 class SimpleConsumer(Consumer):
+    """
+    Simple consumer for the SQS queue.
+    """
     def handle_message(self, message: Message):
         json_content = json.loads(message.Body)
         
-        manifestation_id = json_content['manifestation_id']
-        job_id = json_content['job_id']
-        segment_id = json_content['segment_id']
-        start = int(json_content['start'])
-        end = int(json_content['end'])
+        root_job_id = json_content['root_job_id']
+        text_id = json_content['text_id']
+        batch_number = json_content['batch_number']
+        total_segments = json_content['total_segments']
+        segments = json_content['segments']
 
         segment_relations = process_segment_task(
-            job_id = job_id,
-            manifestation_id = manifestation_id,
-            segment_id = segment_id,
-            start = start,
-            end = end
+            root_job_id=root_job_id,
+            text_id=text_id,
+            batch_number=int(batch_number),
+            total_segments=int(total_segments),
+            segments=list[dict](segments)
         )
         logger.info(f"Segment relations: {segment_relations}")
+
 
 consumer = SimpleConsumer(
     queue_url=queue_url,

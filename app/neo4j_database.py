@@ -1,19 +1,18 @@
-import queue as queue_module
-import logging
-from dotenv import load_dotenv
-
-# Configure logger
-logger = logging.getLogger(__name__)
-
-from neo4j import GraphDatabase
-from app.neo4j_database_validator import Neo4JDatabaseValidator
 import os
+import logging
+import queue as queue_module
+from dotenv import load_dotenv
+from neo4j import GraphDatabase
 from app.neo4j_quries import Queries
 
 load_dotenv(override=True)
 
+# Configure logger
+logger = logging.getLogger(__name__)
+
 # Singleton driver instance - thread-safe and reusable
 _neo4j_driver = None
+
 
 def get_neo4j_driver():
     """Get or create a singleton Neo4j driver instance."""
@@ -28,6 +27,7 @@ def get_neo4j_driver():
         logger.info("Neo4j driver connection established")
     return _neo4j_driver
 
+
 class Neo4JDatabase:
 
     def __init__(self, neo4j_uri: str = None, neo4j_auth: tuple = None):
@@ -37,7 +37,6 @@ class Neo4JDatabase:
         else:
             self.__driver = get_neo4j_driver()
 
-        self.__validator = Neo4JDatabaseValidator()
         logger.info("Neo4JDatabase instance initialized with shared driver")
     
     def get_session(self):
@@ -70,13 +69,19 @@ class Neo4JDatabase:
         with self.__driver.session() as session:
             result = session.execute_read(
                 lambda tx: list(tx.run(
-                    Queries.manifestations["get_expression_ids_by_manifestation_ids"],
+                    Queries.manifestations[
+                        "get_expression_ids_by_manifestation_ids"
+                    ],
                     manifestation_ids=manifestation_ids
                 ))
             )
             return {record["manifestation_id"]: record["expression_id"] for record in result}
 
-    def _get_aligned_segments(self, alignment_1_id: str, start:int, end:int) -> list[dict]:
+    def _get_aligned_segments(
+        self,
+        alignment_1_id: str,
+        start:int,
+        end:int) -> list[dict]:
         with self.get_session() as session:
             result = session.execute_read(
                 lambda tx: tx.run(
@@ -94,7 +99,11 @@ class Neo4JDatabase:
                 for record in result
             ]
 
+
     def get_manifestation_id_by_annotation_id(self, annotation_id: str) -> str:
+        """
+        Get the manifestation ID by annotation ID.
+        """
         with self.__driver.session() as session:
             record = session.execute_read(
                 lambda tx: tx.run(Queries.manifestations["fetch_by_annotation_id"], annotation_id=annotation_id).single()
@@ -104,7 +113,15 @@ class Neo4JDatabase:
             d = record.data()
             return d["manifestation_id"]
 
-    def _get_overlapping_segments(self, manifestation_id: str, start:int, end:int) -> list[dict]:
+    def _get_overlapping_segments(
+        self,
+        manifestation_id: str,
+        start:int,
+        end:int
+    ) -> list[dict]:
+        """
+        Get overlapping segments by manifestation ID and span.
+        """
         with self.get_session() as session:
             result = session.execute_read(
                 lambda tx: tx.run(
@@ -122,7 +139,7 @@ class Neo4JDatabase:
                 for record in result
             ]
 
-    def _get_related_segments(self, manifestation_id:str, start:int, end:int, transform:bool = False) -> list[dict]:
+    def _get_related_segments(self, manifestation_id: str, start: int, end: int, transform: bool = False) -> list[dict]:
         
         # Use local variables instead of globals to prevent race conditions
         transformed_related_segments = []
@@ -182,22 +199,3 @@ class Neo4JDatabase:
             return transformed_related_segments
         else:
             return untransformed_related_segments
-
-    def get_segments_by_manifestation(self, manifestation_id: str) -> list[dict]:
-        """
-        Get all segments from segmentation or pagination annotation for a manifestation.
-        
-        Args:
-            manifestation_id: The manifestation ID
-            
-        Returns:
-            List of dictionaries containing segment_id, span_start, and span_end
-        """
-        with self.get_session() as session:
-            result = session.execute_read(
-                lambda tx: list(tx.run(
-                    Queries.segments["get_segments_by_manifestation"],
-                    manifestation_id=manifestation_id
-                ))
-            )
-            return [dict(record) for record in result]
