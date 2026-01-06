@@ -29,13 +29,17 @@ class SimpleConsumer(Consumer):
         batch_number = json_content['batch_number']
         total_segments = json_content['total_segments']
         segments = json_content['segments']
+        source_environment = json_content['source_environment']
+        destination_environment = json_content['destination_environment']
 
         segment_relations = process_segment_task(
             root_job_id=root_job_id,
             text_id=text_id,
             batch_number=int(batch_number),
             total_segments=int(total_segments),
-            segments=list(segments)
+            segments=list(segments),
+            source_environment=source_environment,
+            destination_environment=destination_environment
         )
         logger.info("Segment relations: %s", segment_relations)
 

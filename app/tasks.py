@@ -32,12 +32,16 @@ def process_segment_task(
     text_id: str,
     batch_number: int,
     total_segments: int,
-    segments: list[dict]
+    segments: list[dict],
+    source_environment: str,
+    destination_environment: str
 ):
 
     try:
 
-        db = Neo4JDatabase()
+        db = Neo4JDatabase(
+            source=source_environment,
+        )
 
         for segment in segments:
             span_start = segment['span']['start']
@@ -65,7 +69,9 @@ def process_segment_task(
         send_completed_mapping_text_to_sqs_service(
             text_id=text_id,
             segment_ids=segment_ids,
-            total_segments=total_segments
+            total_segments=total_segments,
+            source_environment=source_environment,
+            destination_environment=destination_environment
         )
 
         return {

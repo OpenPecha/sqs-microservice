@@ -14,6 +14,8 @@ def send_completed_mapping_text_to_sqs_service(
     text_id: str,
     segment_ids: list[str],
     total_segments: int,
+    source_environment: str,
+    destination_environment: str
 ):
     """
     Send a message to the SQS service to notify that the mapping text has been completed.
@@ -25,7 +27,9 @@ def send_completed_mapping_text_to_sqs_service(
                 {
                     "text_id": text_id,
                     "segment_ids": segment_ids,
-                    "total_segments": total_segments
+                    "total_segments": total_segments,
+                    "source_environment": source_environment,
+                    "destination_environment": destination_environment
                 }
             )
         )
